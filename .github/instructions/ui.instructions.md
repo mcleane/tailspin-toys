@@ -50,6 +50,13 @@ Refer to technology-specific instruction files:
 - Keep components focused on a single responsibility
 - Use props for configuration, not duplication
 - Document component APIs with TypeScript types
+- Add a brief doc comment for reusable component `Props` interfaces so prop intent is discoverable at call sites.
+
+### Comments and Documentation Standards
+
+- Comment the **why**: intent, constraints, and design decisions that are not obvious from markup/class names.
+- Avoid comments that just restate element names, Tailwind classes, or direct control flow.
+- Update or remove stale comments in the same change that alters the related UI.
 
 ## Development Workflow
 

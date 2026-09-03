@@ -70,3 +70,13 @@ Node.js 22.13 or later is required because the data layer uses the built-in `nod
 ## Type checking
 
 The data layer (`db/**/*.ts`, `src/lib/*.ts`) is type-checked by `npm run typecheck`, which runs the native **TypeScript 7** compiler (`tsgo`, from `@typescript/native-preview`) against `tsconfig.tsgo.json`. Keep helpers exported with explicit parameter and return types so `tsgo` can verify them. Linting is unaffected — ESLint + `typescript-eslint` still run on the classic `typescript` package.
+
+## Comments & Documentation
+
+- Comment intent, constraints, and trade-offs — not obvious mechanics already clear from names and types.
+- Treat stale comments as defects: update or remove them in the same change that modifies the related code.
+- Every **exported** function in `db/` and `src/lib/` must include TSDoc/JSDoc that documents:
+  - purpose (what responsibility the function owns),
+  - parameters (including the injectable `db` argument when present), and
+  - return value (including nullable/empty outcomes where relevant).
+- Keep docs close to the code they describe; prefer concise, factual documentation over narrative prose.
