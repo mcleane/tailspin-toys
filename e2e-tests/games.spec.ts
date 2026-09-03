@@ -1,4 +1,10 @@
-import { test, expect, type Response } from '@playwright/test';
+import { test, expect, type Page, type Response } from '@playwright/test';
+
+async function visibleGameCardCount(page: Page): Promise<number> {
+  return page.getByTestId('game-card').evaluateAll((cards) =>
+    cards.filter((card) => !card.classList.contains('hidden')).length,
+  );
+}
 
 test.describe('Game Listing and Navigation', () => {
   test('should display games with titles on index page', async ({ page }) => {
@@ -131,6 +137,120 @@ test.describe('Game Listing and Navigation', () => {
       await expect(page.getByTestId('not-found')).toBeVisible();
       await expect(page.getByTestId('not-found-heading')).not.toBeEmpty();
       await expect(page.getByTestId('not-found-home-link')).toBeVisible();
+    });
+  });
+
+  test('should filter games by category', async ({ page }) => {
+    let categoryId: string | null;
+    let categoryName: string | null;
+
+    await test.step('Navigate to homepage and capture a category', async () => {
+      await page.goto('/');
+      const firstGameCard = page.getByTestId('game-card').first();
+      categoryId = await firstGameCard.getAttribute('data-category-id');
+      categoryName = await firstGameCard.getAttribute('data-category-name');
+      expect(categoryId).toBeTruthy();
+      expect(categoryName).toBeTruthy();
+    });
+
+    await test.step('Apply the category filter', async () => {
+      await page.getByTestId(`category-filter-${categoryId}`).check();
+      await page.getByTestId('apply-filters-button').click();
+      await expect(page).toHaveURL(new RegExp(`\\?category=${categoryId}$`));
+    });
+
+    await test.step('Verify only matching category cards are shown', async () => {
+      expect(await visibleGameCardCount(page)).toBeGreaterThan(0);
+      const visibleCategoryNames = await page.getByTestId('game-card').evaluateAll((cards) =>
+        cards
+          .filter((card) => !card.classList.contains('hidden'))
+          .map((card) => card.getAttribute('data-category-name')),
+      );
+      expect(visibleCategoryNames.every((name) => name === categoryName)).toBe(true);
+      await expect(page.getByTestId('filter-results-status')).toContainText('Showing');
+    });
+  });
+
+  test('should filter games by publisher', async ({ page }) => {
+    let publisherId: string | null;
+    let publisherName: string | null;
+
+    await test.step('Navigate to homepage and capture a publisher', async () => {
+      await page.goto('/');
+      const firstGameCard = page.getByTestId('game-card').first();
+      publisherId = await firstGameCard.getAttribute('data-publisher-id');
+      publisherName = await firstGameCard.getAttribute('data-publisher-name');
+      expect(publisherId).toBeTruthy();
+      expect(publisherName).toBeTruthy();
+    });
+
+    await test.step('Apply the publisher filter', async () => {
+      await page.getByTestId('publisher-filter').selectOption(publisherId ?? '');
+      await page.getByTestId('apply-filters-button').click();
+      await expect(page).toHaveURL(new RegExp(`\\?publisher=${publisherId}$`));
+    });
+
+    await test.step('Verify only matching publisher cards are shown', async () => {
+      expect(await visibleGameCardCount(page)).toBeGreaterThan(0);
+      const visiblePublisherNames = await page.getByTestId('game-card').evaluateAll((cards) =>
+        cards
+          .filter((card) => !card.classList.contains('hidden'))
+          .map((card) => card.getAttribute('data-publisher-name')),
+      );
+      expect(visiblePublisherNames.every((name) => name === publisherName)).toBe(true);
+    });
+  });
+
+  test('should combine category and publisher filters', async ({ page }) => {
+    let categoryId: string | null;
+    let publisherId: string | null;
+
+    await test.step('Navigate to homepage and capture matching filters', async () => {
+      await page.goto('/');
+      const firstGameCard = page.getByTestId('game-card').first();
+      categoryId = await firstGameCard.getAttribute('data-category-id');
+      publisherId = await firstGameCard.getAttribute('data-publisher-id');
+      expect(categoryId).toBeTruthy();
+      expect(publisherId).toBeTruthy();
+    });
+
+    await test.step('Apply both filters together', async () => {
+      await page.getByTestId(`category-filter-${categoryId}`).check();
+      await page.getByTestId('publisher-filter').selectOption(publisherId ?? '');
+      await page.getByTestId('apply-filters-button').click();
+      await expect(page).toHaveURL(new RegExp(`category=${categoryId}.*publisher=${publisherId}`));
+    });
+
+    await test.step('Verify visible cards match both filters', async () => {
+      expect(await visibleGameCardCount(page)).toBeGreaterThan(0);
+      const visibleCards = await page.getByTestId('game-card').evaluateAll((cards) =>
+        cards
+          .filter((card) => !card.classList.contains('hidden'))
+          .map((card) => ({
+            categoryId: card.getAttribute('data-category-id'),
+            publisherId: card.getAttribute('data-publisher-id'),
+          })),
+      );
+      expect(visibleCards.every((card) => card.categoryId === categoryId && card.publisherId === publisherId)).toBe(true);
+    });
+  });
+
+  test('should clear selected filters', async ({ page }) => {
+    await test.step('Navigate to a filtered games page', async () => {
+      await page.goto('/');
+      const firstCategoryId = await page.getByTestId('game-card').first().getAttribute('data-category-id');
+      expect(firstCategoryId).toBeTruthy();
+      await page.getByTestId(`category-filter-${firstCategoryId}`).check();
+      await page.getByTestId('apply-filters-button').click();
+      await expect(page).toHaveURL(new RegExp(`\\?category=${firstCategoryId}$`));
+    });
+
+    await test.step('Clear filters and verify all cards return', async () => {
+      const totalCardCount = await page.getByTestId('game-card').count();
+      await page.getByTestId('clear-filters-link').click();
+      await expect(page).toHaveURL('/');
+      expect(await visibleGameCardCount(page)).toBe(totalCardCount);
+      await expect(page.getByTestId('filter-results-status')).toContainText('Showing all');
     });
   });
 });
